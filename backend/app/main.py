@@ -15,4 +15,3 @@ def create_rule(item: BusinessRuleEndpoint):
 def health_check():
     return {"status": "ok"}
 
-d
