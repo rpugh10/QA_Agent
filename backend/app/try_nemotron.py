@@ -11,24 +11,30 @@ client = OpenAI(
     max_retries=0,
 )
 
-response = client.chat.completions.create(
-    model=os.environ["NEBIUS_MODEL"],
-    messages=[
-        {
-            "role": "system",
-            "content": """Answer briefly"""
-        },
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": """Explain what an API is in one sentence."""
-                }
-            ]
-        }
-    ]
-)
+def analyze_rule(rule: str) -> str:
+    response = client.chat.completions.create(
+        model=os.environ["NEBIUS_MODEL"],
+        messages=[
+            {
+                "role": "system",
+                "content": """You are a helpful assistant that analyzes rules and provides insights."""
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": rule
+                    }
+                ]
+            }
+        ]
+    )
+    answer = response.choices[0].message.content
+    if not answer:
+        raise ValueError("No answer received from the model.")
+    return answer
 
-
-print(response.choices[0].message.content)
+if __name__ == "__main__":
+    result = analyze_rule("An order total must be greater than zero")
+    print(result)
