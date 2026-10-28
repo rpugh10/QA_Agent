@@ -34,6 +34,7 @@ async def upload_file(file: UploadFile = File(...), rule: str = Form(..., min_le
         raise HTTPException(status_code=413, detail="File size exceeds 1 MiB limit.")
     if not content:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    
     try:
         specification = json.loads(content)
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
@@ -47,6 +48,19 @@ async def upload_file(file: UploadFile = File(...), rule: str = Form(..., min_le
             status_code=400,
             detail="The specification must declare an OpenAPI 3.x version in 'openapi'."
         )
+    
+    info = specification.get("info")
+    if not isinstance(info, dict):
+        raise HTTPException(status_code=400, detail="The specification's 'info' must be a JSON object.")
+    for field in ("title", "version"):
+        value = info.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise HTTPException(
+                status_code=400,
+                detail=f"The specification's 'info.{field}' must be a nonempty string."
+            )
+    if not isinstance(specification.get("paths"), dict):
+        raise HTTPException(status_code=400, detail="The specification's 'paths' must be a JSON object.")
     return {"filename": file.filename, "size_bytes": len(content), "rule": rule}
 
 
