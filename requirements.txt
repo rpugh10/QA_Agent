@@ -1,0 +1,11 @@
+# Backend dependencies (versions from the existing .venv313 environment)
+fastapi==0.143.3
+pydantic==2.14.1
+openai==3.33.0
+python-dotenv==1.2.4
+python-multipart==0.0.32
+uvicorn==0.54.0
+
+# Test runner used by .github/workflows/ci.yml
+pytest
+httpx==0.28.1
