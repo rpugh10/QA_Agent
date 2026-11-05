@@ -6,7 +6,7 @@ import httpx
 import pytest
 from openai import APITimeoutError, AuthenticationError, NotFoundError
 
-
+# Testing valid input for the /rule endpoint
 def test_rule_returns_model_answer(client, monkeypatch):
     from app import main
 
@@ -20,13 +20,14 @@ def test_rule_returns_model_answer(client, monkeypatch):
     analyze.assert_called_once_with("Order total must exceed zero")
 
 
+# Testing invalid input for the /rule endpoint
 @pytest.mark.parametrize("payload", [{}, {"rule": ""}, {"rule": None}])
 def test_rule_rejects_missing_or_empty_rule(client, payload):
     response = client.post("/rule", json=payload)
 
     assert response.status_code == 422
 
-
+# Testing how provider errors are translated into HTTP responses
 @pytest.mark.parametrize(
     "error_type, provider_status, expected_status, detail",
     [
@@ -35,6 +36,8 @@ def test_rule_rejects_missing_or_empty_rule(client, payload):
         (NotFoundError, 404, 502, "Model not found."),
     ],
 )
+
+# Testing the translation of provider errors into HTTP responses
 def test_rule_translates_provider_errors(
     client, monkeypatch, error_type, provider_status, expected_status, detail
 ):
