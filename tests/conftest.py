@@ -19,5 +19,10 @@ def client(monkeypatch):
 
     # Fail locally if a test accidentally tries to use the real provider.
     monkeypatch.setattr(main, "analyze_rule", unexpected_model_call)
+
+    def unexpected_specification_call(specification, business_rules):
+        pytest.fail("Mock analyze_specification before testing a valid upload")
+
+    monkeypatch.setattr(main, "analyze_specification", unexpected_specification_call)
     with TestClient(main.app) as test_client:
         yield test_client
