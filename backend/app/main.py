@@ -6,9 +6,11 @@ from pydantic import BaseModel, Field
 from fastapi import HTTPException
 from openai import APITimeoutError, AuthenticationError, NotFoundError
 from fastapi import File, Form, UploadFile
+from fastapi.concurrency import run_in_threadpool
 import json
 
 from app.try_nemotron import analyze_rule
+from app.try_nemotron import analyze_specification
 
 app = FastAPI()
 
@@ -42,6 +44,7 @@ async def upload_file(file: UploadFile = File(...), rule: str = Form(..., min_le
     if not isinstance(specification, dict):
         raise HTTPException(status_code=400,detail="The specification must be a JSON object."
         )
+    
     openapi_version = specification.get("openapi")
     if not isinstance(openapi_version, str) or not openapi_version.startswith("3."):
         raise HTTPException(
@@ -61,7 +64,17 @@ async def upload_file(file: UploadFile = File(...), rule: str = Form(..., min_le
             )
     if not isinstance(specification.get("paths"), dict):
         raise HTTPException(status_code=400, detail="The specification's 'paths' must be a JSON object.")
-    return {"filename": file.filename, "size_bytes": len(content), "rule": rule}
+
+    try:
+        answer = await run_in_threadpool(analyze_specification, specification, rule)
+    except APITimeoutError as exc:
+            raise HTTPException(status_code=504, detail="Request to the model timed out.") from exc
+    except AuthenticationError as exc:
+            raise HTTPException(status_code=502, detail="Invalid API key.") from exc
+    except NotFoundError as exc:
+            raise HTTPException(status_code=502, detail="Model not found.") from exc
+
+    return {"filename": file.filename, "size_bytes": len(content), "rule": rule, "answer": answer}
 
 
 
