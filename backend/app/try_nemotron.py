@@ -1,3 +1,4 @@
+
 import json
 import os
 from pathlib import Path
@@ -69,7 +70,7 @@ def analyze_specification(specification: dict, business_rules: str) -> str:
         ]
     )
     answer = response.choices[0].message.content
-    if not answer:
+    if not answer or not answer.strip():
         raise ValueError("No answer received from the model.")
     return answer
 

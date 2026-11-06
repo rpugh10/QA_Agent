@@ -73,6 +73,10 @@ async def upload_file(file: UploadFile = File(...), rule: str = Form(..., min_le
             raise HTTPException(status_code=502, detail="Invalid API key.") from exc
     except NotFoundError as exc:
             raise HTTPException(status_code=502, detail="Model not found.") from exc
+    except ValueError as exc:
+            raise HTTPException(status_code=502, detail="No answer received from the model.") from exc
+    except APITimeoutError as exc:
+            raise HTTPException(status_code=504, detail="Request to the model timed out.") from exc
 
     return {"filename": file.filename, "size_bytes": len(content), "rule": rule, "answer": answer}
 
