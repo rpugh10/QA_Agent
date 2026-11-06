@@ -42,6 +42,9 @@ def test_upload_accepts_specification(client, specification):
         (b"not json", 400, "Uploaded file is not a valid JSON."),
         (b"\xff", 400, "Uploaded file is not a valid JSON."),
         (b"[]", 400, "The specification must be a JSON object."),
+        (b"null", 400, "The specification must be a JSON object."),
+        (b"42", 400, "The specification must be a JSON object."),
+        (b'{"openapi":', 400, "Uploaded file is not a valid JSON."),
         (b"x" * (1024 * 1024 + 1), 413, "File size exceeds 1 MiB limit."),
     ],
 )
@@ -70,7 +73,7 @@ def test_upload_rejects_invalid_specification_fields(client, specification, fiel
 
 
 @pytest.mark.parametrize("field", ["title", "version"])
-@pytest.mark.parametrize("value", [None, "", "   "])
+@pytest.mark.parametrize("value", [None, "", "   ", "\t\r\n", 123, True, [], {}])
 def test_upload_requires_info_fields(client, specification, field, value):
     specification["info"][field] = value
 
@@ -80,6 +83,41 @@ def test_upload_requires_info_fields(client, specification, field, value):
     assert response.json() == {
         "detail": f"The specification's 'info.{field}' must be a nonempty string."
     }
+
+
+@pytest.mark.parametrize("field", ["title", "version"])
+def test_upload_rejects_missing_info_fields(client, specification, field):
+    del specification["info"][field]
+
+    response = upload(client, json.dumps(specification).encode("utf-8"))
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": f"The specification's 'info.{field}' must be a nonempty string."
+    }
+
+
+@pytest.mark.parametrize("field", ["info", "paths"])
+@pytest.mark.parametrize("value", [None, [], "", 123, True])
+def test_upload_requires_object_fields(client, specification, field, value):
+    specification[field] = value
+
+    response = upload(client, json.dumps(specification).encode("utf-8"))
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": f"The specification's '{field}' must be a JSON object."
+    }
+
+
+@pytest.mark.parametrize("field", ["openapi", "info", "paths"])
+def test_upload_rejects_missing_specification_fields(client, specification, field):
+    del specification[field]
+
+    response = upload(client, json.dumps(specification).encode("utf-8"))
+
+    assert response.status_code == 400
+    assert "detail" in response.json()
 
 
 @pytest.mark.parametrize("missing", ["file", "rule"])
