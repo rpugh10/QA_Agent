@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
 from fastapi import HTTPException
-from openai import APITimeoutError, AuthenticationError, NotFoundError
+from openai import APIConnectionError, APIStatusError, APITimeoutError, AuthenticationError, NotFoundError
 from fastapi import File, Form, UploadFile
 from fastapi.concurrency import run_in_threadpool
 import json
@@ -68,15 +68,17 @@ async def upload_file(file: UploadFile = File(...), rule: str = Form(..., min_le
     try:
         answer = await run_in_threadpool(analyze_specification, specification, rule)
     except APITimeoutError as exc:
-            raise HTTPException(status_code=504, detail="Request to the model timed out.") from exc
+        raise HTTPException(status_code=504, detail="Request to the model timed out.") from exc
     except AuthenticationError as exc:
-            raise HTTPException(status_code=502, detail="Invalid API key.") from exc
+        raise HTTPException(status_code=502, detail="Invalid API key.") from exc
     except NotFoundError as exc:
-            raise HTTPException(status_code=502, detail="Model not found.") from exc
+        raise HTTPException(status_code=502, detail="Model not found.") from exc
     except ValueError as exc:
-            raise HTTPException(status_code=502, detail="No answer received from the model.") from exc
-    except APITimeoutError as exc:
-            raise HTTPException(status_code=504, detail="Request to the model timed out.") from exc
+        raise HTTPException(status_code=502, detail="No answer received from the model.") from exc
+    except APIConnectionError as exc:
+        raise HTTPException(status_code=502, detail="Could not connect to the model provider.") from exc
+    except APIStatusError as exc:
+        raise HTTPException(status_code=502, detail="The model provider could not complete the request.") from exc
 
     return {"filename": file.filename, "size_bytes": len(content), "rule": rule, "answer": answer}
 
