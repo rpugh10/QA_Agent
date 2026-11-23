@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import httpx
 import pytest
-from openai import APITimeoutError, AuthenticationError, NotFoundError
+from openai import APIConnectionError, APIStatusError, APITimeoutError, AuthenticationError, NotFoundError
 
 
 ## Test fixtures and helper functions
@@ -53,6 +53,10 @@ def test_upload_accepts_specification(client, specification, monkeypatch):
         (APITimeoutError, None, 504, "Request to the model timed out."),
         (AuthenticationError, 401, 502, "Invalid API key."),
         (NotFoundError, 404, 502, "Model not found."),
+        (APIConnectionError, None, 502, "Could not connect to the model provider."),
+        (APIStatusError, 429, 502, "The model provider could not complete the request."),
+        (APIStatusError, 500, 502, "The model provider could not complete the request."),
+        (ValueError, None, 502, "No answer received from the model."),
     ],
 )
 def test_upload_translates_provider_errors(
@@ -62,8 +66,10 @@ def test_upload_translates_provider_errors(
     from app import main
 
     request = httpx.Request("POST", "https://example.invalid/v1/chat/completions")
-    if error_type is APITimeoutError:
+    if error_type in (APITimeoutError, APIConnectionError):
         error = error_type(request=request)
+    elif error_type is ValueError:
+        error = ValueError("No answer received from the model.")
     else:
         error = error_type(
             "Provider error",
