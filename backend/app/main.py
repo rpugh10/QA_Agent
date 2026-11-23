@@ -11,6 +11,8 @@ import json
 
 from app.try_nemotron import analyze_rule
 from app.try_nemotron import analyze_specification
+from app.try_nemotron import InvalidPlanError
+from app.plan_models import TestPlan
 
 app = FastAPI()
 
@@ -29,7 +31,14 @@ def create_rule(item: BusinessRuleEndpoint):
         raise HTTPException(status_code=502, detail="Model not found.") from exc
     return {"answer": answer}
 
-@app.post("/upload")
+class UploadResponse(BaseModel):
+    filename: str | None
+    size_bytes: int
+    rule: str
+    plan: TestPlan
+
+
+@app.post("/upload", response_model=UploadResponse)
 async def upload_file(file: UploadFile = File(...), rule: str = Form(..., min_length=1)):
     content = await file.read(1024 * 1024 + 1)  # Read up to 1 MiB + 1 byte
     if len(content) > 1024 * 1024:
@@ -66,7 +75,9 @@ async def upload_file(file: UploadFile = File(...), rule: str = Form(..., min_le
         raise HTTPException(status_code=400, detail="The specification's 'paths' must be a JSON object.")
 
     try:
-        answer = await run_in_threadpool(analyze_specification, specification, rule)
+        plan = await run_in_threadpool(analyze_specification, specification, rule)
+    except InvalidPlanError as exc:
+        raise HTTPException(status_code=502, detail="The model did not return a valid test plan after 2 attempts.") from exc
     except APITimeoutError as exc:
         raise HTTPException(status_code=504, detail="Request to the model timed out.") from exc
     except AuthenticationError as exc:
@@ -80,7 +91,7 @@ async def upload_file(file: UploadFile = File(...), rule: str = Form(..., min_le
     except APIStatusError as exc:
         raise HTTPException(status_code=502, detail="The model provider could not complete the request.") from exc
 
-    return {"filename": file.filename, "size_bytes": len(content), "rule": rule, "answer": answer}
+    return {"filename": file.filename, "size_bytes": len(content), "rule": rule, "plan": plan}
 
 
 

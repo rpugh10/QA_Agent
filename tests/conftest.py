@@ -5,6 +5,16 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture
+def clarification_plan():
+    from app.plan_models import TestPlan
+
+    return TestPlan(cases=[], clarification_questions=[{
+        "question": "Which endpoint does the rule concern?",
+        "reason": "The supplied requirements do not identify an operation.",
+    }])
+
+
+@pytest.fixture
 def client(monkeypatch):
     # The provider client is created when app.main is first imported.
     # Override configuration before that import, even if a local .env exists.

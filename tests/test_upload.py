@@ -27,10 +27,10 @@ def upload(client, content):
     )
 
 # Test that the upload endpoint accepts a valid OpenAPI specification and returns the expected response.
-def test_upload_accepts_specification(client, specification, monkeypatch):
+def test_upload_accepts_specification(client, specification, monkeypatch, clarification_plan):
     from app import main
 
-    analyze = Mock(return_value="Check that order totals are positive.")
+    analyze = Mock(return_value=clarification_plan)
     # Patch where the endpoint looks up the function, not its original module.
     monkeypatch.setattr(main, "analyze_specification", analyze)
     content = json.dumps(specification).encode("utf-8")
@@ -42,7 +42,7 @@ def test_upload_accepts_specification(client, specification, monkeypatch):
         "filename": "openapi.json",
         "size_bytes": len(content),
         "rule": "Order total must exceed zero",
-        "answer": "Check that order totals are positive.",
+        "plan": clarification_plan.model_dump(),
     }
     analyze.assert_called_once_with(specification, "Order total must exceed zero")
 
@@ -84,6 +84,35 @@ def test_upload_translates_provider_errors(
     assert response.status_code == expected_status
     assert response.json() == {"detail": detail}
     analyze.assert_called_once_with(specification, "Order total must exceed zero")
+
+
+@pytest.mark.parametrize("valid", [True, False])
+def test_upload_validates_real_provider_output(
+    client, specification, monkeypatch, clarification_plan, valid,
+):
+    from types import SimpleNamespace
+    from app import main, try_nemotron as provider
+
+    content = clarification_plan.model_dump_json() if valid else '{"secret": "untrusted output"}'
+    create = Mock(return_value=SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
+    ))
+    monkeypatch.setattr(provider.client.chat.completions, "create", create)
+    monkeypatch.setattr(main, "analyze_specification", provider.analyze_specification)
+
+    response = upload(client, json.dumps(specification).encode("utf-8"))
+
+    if valid:
+        assert response.status_code == 200
+        assert response.json()["plan"] == clarification_plan.model_dump()
+        assert "answer" not in response.json()
+        assert create.call_count == 1
+    else:
+        assert response.status_code == 502
+        assert response.json() == {
+            "detail": "The model did not return a valid test plan after 2 attempts."
+        }
+        assert create.call_count == 2
 
 
 # Test that the upload endpoint rejects invalid files, including empty files, non-JSON files, and files that exceed the size limit.
