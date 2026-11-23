@@ -23,7 +23,7 @@ def main():
         }}},
     }
     try:
-        analyze_specification(
+        plan = analyze_specification(
             specification,
             "GET /health must return HTTP 200. Propose one concise scenario; do not execute it.",
         )
@@ -32,7 +32,8 @@ def main():
         print(f"Live specification analysis failed: {type(exc).__name__}")
         return 1
 
-    print("Nebius Token Factory / NVIDIA Nemotron: nonempty answer received.")
+    print(f"Validated plan received: {len(plan.cases)} cases, "
+          f"{len(plan.clarification_questions)} plan-level clarification questions.")
     return 0
 
 
